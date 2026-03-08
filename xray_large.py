@@ -10,12 +10,16 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import CLIPProcessor, CLIPModel, get_cosine_schedule_with_warmup
 from torch.amp import autocast, GradScaler
 from nltk.translate.meteor_score import meteor_score
+import kagglehub
 
 # =====================================================
 # CONFIG
 # =====================================================
 
-BASE_PATH = "/home/achang93/.cache/kagglehub/datasets/simhadrisadaram/mimic-cxr-dataset/versions/2"
+dataset_handle = "simhadrisadaram/mimic-cxr-dataset/versions/2"
+BASE_PATH = kagglehub.dataset_download(dataset_handle)
+
+# Construct your specific file paths dynamically using the returned BASE_PATH
 CSV_FILE = os.path.join(BASE_PATH, "mimic_cxr_aug_train.csv")
 IMAGE_ROOT = os.path.join(BASE_PATH, "official_data_iccv_final")
 
@@ -177,9 +181,18 @@ def main():
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
+                # Step the optimizer
                 scaler.step(optimizer)
+                
+                # Check if the scaler is going to drop the scale (meaning it skipped the optimizer step)
+                scale_before = scaler.get_scale()
                 scaler.update()
-                scheduler.step()
+                scale_after = scaler.get_scale()
+                
+                # Only step the scheduler if the optimizer actually stepped
+                if scale_before <= scale_after:
+                    scheduler.step()
+                    
                 optimizer.zero_grad()
 
                 # Stabilize temperature
