@@ -5,3 +5,5 @@ transformers
 nltk
 pandas
 tqdm
+sentencepiece
+accelerate
